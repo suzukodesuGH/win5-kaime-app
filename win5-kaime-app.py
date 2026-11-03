@@ -5,7 +5,7 @@ import streamlit as st
 # ページの設定
 st.set_page_config(page_title="WIN5 買い目ツクール", page_icon="🏇", layout="wide")
 
-# スタイル設定
+# スタイル設定（スマホでもカラムを絶対に縦に落とさず横並びを維持するCSSを追加）
 st.markdown(
     """
     <style>
@@ -31,6 +31,19 @@ st.markdown(
         font-size: 1rem;
         color: #555;
     }
+    /* スマホ・狭い画面でもカラム（横並び）を縦に折り返させない強制スタイル */
+    @media (max-width: 768px) {
+        div[data-testid="stHorizontalBlock"] {
+            display: flex !important;
+            flex-direction: row !important;
+        }
+        div[data-testid="column"] {
+            width: auto !important;
+            flex: 1 !important;
+            min-width: 0 !important;
+            padding: 0 2px !important;
+        }
+    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -43,7 +56,7 @@ st.markdown(
 # --- サイドバー：絞り込み条件設定 ---
 st.sidebar.header("⚙️ 絞り込み条件設定")
 
-# ① 人気の和の範囲指定（数値入力方式 ＆ 逆転防止ガード付き）
+# ① 人気の和の範囲指定（数値入力方式 ＆ 逆転防止ガード付き・横並び）
 st.sidebar.subheader("1. 人気の和の範囲")
 col_s1, col_s2 = st.sidebar.columns(2)
 with col_s1:
@@ -91,7 +104,7 @@ enable_jockey_filter = st.sidebar.checkbox(
 
 st.sidebar.markdown("---")
 
-# --- メイン入力エリア（スマホ対応：2行コンパクト配置） ---
+# --- メイン入力エリア（スマホ対応：2行コンパクト配置・強制横並び） ---
 st.subheader("📝 各レースの候補馬")
 st.markdown(
     "<small style='color: #666;'>※各候補の <b>[馬番] [人気] [騎手]</b>"
@@ -112,14 +125,14 @@ for i, r_name in enumerate(race_names):
     for c_idx in range(1, 6):
       # 1行目：項目名
       st.markdown(
-          f"<p style='margin-bottom: 2px; font-size: 0.85rem;"
+          f"<p style='margin-bottom: 2px; font-size: 0.82rem;"
           f" font-weight: bold; color: #444;'>候補 #{c_idx} <span"
-          " style='font-weight: normal; color: #888; font-size: 0.75rem;'>(馬番"
+          " style='font-weight: normal; color: #888; font-size: 0.7rem;'>(馬番"
           " / 人気 / 騎手)</span></p>",
           unsafe_allow_html=True,
       )
 
-      # 2行目：3つの入力枠を横並び
+      # 2行目：3つの入力枠を強制横並び
       cols = st.columns(3)
       with cols[0]:
         default_umaban = 1 if c_idx == 1 else 0
@@ -147,7 +160,7 @@ for i, r_name in enumerate(race_names):
             value="",
             key=f"{r_name}_jockey_{c_idx}",
             label_visibility="collapsed",
-            placeholder="騎手(任意)",
+            placeholder="騎手",
         )
 
       if b_num > 0 and n_rank > 0:
