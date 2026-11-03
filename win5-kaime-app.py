@@ -43,11 +43,24 @@ st.markdown(
 # --- サイドバー：絞り込み条件設定 ---
 st.sidebar.header("⚙️ 絞り込み条件設定")
 
-# ① 人気の和の範囲指定（デフォルト 11〜19）
-st.sidebar.subheader("1. 人気の和")
-sum_range = st.sidebar.slider(
-    "許容する人気の和の範囲", 5, 50, (11, 19), step=1
-)
+# ① 人気の和の範囲指定（数値入力方式 ＆ 逆転防止ガード付き）
+st.sidebar.subheader("1. 人気の和の範囲")
+col_s1, col_s2 = st.sidebar.columns(2)
+with col_s1:
+  sum_min = st.number_input(
+      "下限", min_value=5, max_value=50, value=11, step=1, key="sum_min"
+  )
+with col_s2:
+  sum_max = st.number_input(
+      "上限", min_value=5, max_value=50, value=19, step=1, key="sum_max"
+  )
+
+# 上下限の逆転防止・安全処理
+if sum_min > sum_max:
+  st.sidebar.warning("⚠️ 下限が上限を超えています（自動で入れ替えて計算します）")
+  effective_min, effective_max = sum_max, sum_min
+else:
+  effective_min, effective_max = sum_min, sum_max
 
 # ② 1番人気の登場回数上限
 st.sidebar.subheader("2. 上位人気の出現制限")
@@ -78,8 +91,13 @@ enable_jockey_filter = st.sidebar.checkbox(
 
 st.sidebar.markdown("---")
 
-# --- メイン入力エリア ---
+# --- メイン入力エリア（スマホ対応：2行コンパクト配置） ---
 st.subheader("📝 各レースの候補馬")
+st.markdown(
+    "<small style='color: #666;'>※各候補の <b>[馬番] [人気] [騎手]</b>"
+    " を横並びで入力できます</small>",
+    unsafe_allow_html=True,
+)
 
 races_data = {}
 race_names = ["WIN1", "WIN2", "WIN3", "WIN4", "WIN5"]
@@ -92,33 +110,44 @@ for i, r_name in enumerate(race_names):
     candidates = []
 
     for c_idx in range(1, 6):
-      cols = st.columns([1.2, 1.2, 1.5, 4])
+      # 1行目：項目名
+      st.markdown(
+          f"<p style='margin-bottom: 2px; font-size: 0.85rem;"
+          f" font-weight: bold; color: #444;'>候補 #{c_idx} <span"
+          " style='font-weight: normal; color: #888; font-size: 0.75rem;'>(馬番"
+          " / 人気 / 騎手)</span></p>",
+          unsafe_allow_html=True,
+      )
+
+      # 2行目：3つの入力枠を横並び
+      cols = st.columns(3)
       with cols[0]:
-        # 馬1のみデフォルト1、馬2〜5は0(未入力)
         default_umaban = 1 if c_idx == 1 else 0
         b_num = st.number_input(
-            f"馬番 #{c_idx}",
+            f"馬番_{r_name}_{c_idx}",
             min_value=0,
             max_value=18,
             value=default_umaban,
             key=f"{r_name}_umaban_{c_idx}",
-            help="太字の項目（馬番）",
+            label_visibility="collapsed",
         )
       with cols[1]:
-        # 馬1のみデフォルト1、馬2〜5は0
         default_ninki = 1 if c_idx == 1 else 0
         n_rank = st.number_input(
-            f"人気 #{c_idx}",
+            f"人気_{r_name}_{c_idx}",
             min_value=0,
             max_value=18,
             value=default_ninki,
             key=f"{r_name}_ninki_{c_idx}",
-            help="人気順",
+            label_visibility="collapsed",
         )
       with cols[2]:
-        # 騎手名（プレースホルダーなし）
         jockey = st.text_input(
-            f"騎手 #{c_idx}", value="", key=f"{r_name}_jockey_{c_idx}"
+            f"騎手_{r_name}_{c_idx}",
+            value="",
+            key=f"{r_name}_jockey_{c_idx}",
+            label_visibility="collapsed",
+            placeholder="騎手(任意)",
         )
 
       if b_num > 0 and n_rank > 0:
@@ -134,7 +163,7 @@ for r_name in race_names:
   valid_cands = races_data[r_name]
   processed_races.append(valid_cands)
 
-# 簡易サマリー用のデータを集計（馬番のみのリスト）
+# 簡易サマリー用のデータを集計
 summary_texts = {}
 for r_name in race_names:
   cands = races_data[r_name]
@@ -159,9 +188,9 @@ for combo in all_combinations:
   ninki_list = [item["ninki"] for item in combo]
   jockey_list = [item["jockey"] for item in combo if item["jockey"] != ""]
 
-  # 判定1: 人気の和
+  # 判定1: 人気の和（安全な有効範囲で判定）
   sum_ninki = sum(ninki_list)
-  if not (sum_range[0] <= sum_ninki <= sum_range[1]):
+  if not (effective_min <= sum_ninki <= effective_max):
     continue
 
   # 判定2: 1番人気の登場回数上限
@@ -213,9 +242,7 @@ with view_tab1:
         "条件に一致する買い目がありません。入力内容や絞り込み条件を見直してください。"
     )
   else:
-    # 1. 表用データの構築
     display_data = []
-    # 2. テキスト・コピペ用データの構築 (＃01 1-5-8-4-11 形式)
     text_lines = []
 
     for idx, combo in enumerate(filtered_results, 1):
@@ -228,13 +255,10 @@ with view_tab1:
           "WIN5": f"{combo[4]['umaban']}",
       })
 
-      # コピペ用文字列：＃01 1-5-8-4-11
       combo_str = "-".join([str(item["umaban"]) for item in combo])
       text_lines.append(f"＃{idx:02d} {combo_str}")
 
     df_display = pd.DataFrame(display_data)
-
-    # 一括コピー用テキスト＆ダウンロードエリア
     export_text = "\n".join(text_lines)
 
     col1, col2 = st.columns([3, 1])
@@ -246,8 +270,17 @@ with view_tab1:
           mime="text/plain",
       )
 
-    with st.expander("📋 一括コピペ用テキスト表示", expanded=False):
-      st.text_area("全選択（Ctrl+A / Cmd+A）してコピーできます", value=export_text, height=200)
+    with st.expander("📋 一括コピペ用テキスト表示（タップで全選択）", expanded=True):
+      st.markdown(
+          "<small style='color: #666;'>枠内をタップすると全選択できるのでそのままコピーできます</small>",
+          unsafe_allow_html=True,
+      )
+      st.text_area(
+          "コピペ用エリア",
+          value=export_text,
+          height=180,
+          label_visibility="collapsed",
+      )
 
     st.dataframe(df_display, use_container_width=True, hide_index=True)
 
@@ -267,7 +300,7 @@ with view_tab2:
       sum_n = sum(ninki_list)
 
       passed = True
-      if not (sum_range[0] <= sum_n <= sum_range[1]):
+      if not (effective_min <= sum_n <= effective_max):
         passed = False
       if ninki_list.count(1) > max_rank1:
         passed = False
