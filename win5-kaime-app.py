@@ -2,6 +2,7 @@ import itertools
 import pandas as pd
 import streamlit as st
 
+
 # ページの設定
 st.set_page_config(page_title="WIN5 買い目ツクール", page_icon="🏇", layout="wide")
 
