@@ -5,7 +5,7 @@ import streamlit as st
 # ページの設定
 st.set_page_config(page_title="WIN5 買い目ツクール", page_icon="🏇", layout="wide")
 
-# スタイル設定（スマホでもカラムを絶対に縦に落とさず横並びを維持するCSSを追加）
+# スタイル設定（安定動作のため複雑なスマホ強制CSSを削除）
 st.markdown(
     """
     <style>
@@ -31,19 +31,6 @@ st.markdown(
         font-size: 1rem;
         color: #555;
     }
-    /* スマホ・狭い画面でもカラム（横並び）を縦に折り返させない強制スタイル */
-    @media (max-width: 768px) {
-        div[data-testid="stHorizontalBlock"] {
-            display: flex !important;
-            flex-direction: row !important;
-        }
-        div[data-testid="column"] {
-            width: auto !important;
-            flex: 1 !important;
-            min-width: 0 !important;
-            padding: 0 2px !important;
-        }
-    }
     </style>
 """,
     unsafe_allow_html=True,
@@ -56,7 +43,7 @@ st.markdown(
 # --- サイドバー：絞り込み条件設定 ---
 st.sidebar.header("⚙️ 絞り込み条件設定")
 
-# ① 人気の和の範囲指定（数値入力方式 ＆ 逆転防止ガード付き・横並び）
+# ① 人気の和の範囲指定（数値入力方式 ＆ 逆転防止ガード付き）
 st.sidebar.subheader("1. 人気の和の範囲")
 col_s1, col_s2 = st.sidebar.columns(2)
 with col_s1:
@@ -104,11 +91,10 @@ enable_jockey_filter = st.sidebar.checkbox(
 
 st.sidebar.markdown("---")
 
-# --- メイン入力エリア（スマホ対応：2行コンパクト配置・強制横並び） ---
+# --- メイン入力エリア ---
 st.subheader("📝 各レースの候補馬")
 st.markdown(
-    "<small style='color: #666;'>※各候補の <b>[馬番] [人気] [騎手]</b>"
-    " を横並びで入力できます</small>",
+    "<small style='color: #666;'>※iPhoneを横向きにすると横並びで入力しやすくなります</small>",
     unsafe_allow_html=True,
 )
 
@@ -123,7 +109,6 @@ for i, r_name in enumerate(race_names):
     candidates = []
 
     for c_idx in range(1, 6):
-      # 1行目：項目名
       st.markdown(
           f"<p style='margin-bottom: 2px; font-size: 0.82rem;"
           f" font-weight: bold; color: #444;'>候補 #{c_idx} <span"
@@ -132,7 +117,6 @@ for i, r_name in enumerate(race_names):
           unsafe_allow_html=True,
       )
 
-      # 2行目：3つの入力枠を強制横並び
       cols = st.columns(3)
       with cols[0]:
         default_umaban = 1 if c_idx == 1 else 0
@@ -176,52 +160,43 @@ for r_name in race_names:
   valid_cands = races_data[r_name]
   processed_races.append(valid_cands)
 
-# 簡易サマリー用のデータを集計
 summary_texts = {}
 for r_name in race_names:
   cands = races_data[r_name]
   nums = [str(c["umaban"]) for c in cands]
   summary_texts[r_name] = ", ".join(nums) if nums else "なし"
 
-# サイドバーに常時サマリーを表示
 st.sidebar.subheader("📋 選択馬サマリー")
 for r_name in race_names:
   st.sidebar.text(f"{r_name}：{summary_texts[r_name]}")
 
-# 全組み合わせの生成 (直積)
 if any(len(r) == 0 for r in processed_races):
   all_combinations = []
 else:
   all_combinations = list(itertools.product(*processed_races))
 
-# フィルタリング判定
 filtered_results = []
 
 for combo in all_combinations:
   ninki_list = [item["ninki"] for item in combo]
   jockey_list = [item["jockey"] for item in combo if item["jockey"] != ""]
 
-  # 判定1: 人気の和（安全な有効範囲で判定）
   sum_ninki = sum(ninki_list)
   if not (effective_min <= sum_ninki <= effective_max):
     continue
 
-  # 判定2: 1番人気の登場回数上限
   count_rank1 = ninki_list.count(1)
   if count_rank1 > max_rank1:
     continue
 
-  # 判定3: 1・2番人気の登場回数上限
   count_rank12 = sum(1 for n in ninki_list if n <= 2)
   if count_rank12 > max_rank12:
     continue
 
-  # 判定4: 5番人気以下の登場回数上限
   count_under5 = sum(1 for n in ninki_list if n >= 5)
   if count_under5 > max_under5:
     continue
 
-  # 判定5: 騎手の重複チェック
   if enable_jockey_filter:
     if len(jockey_list) != len(set(jockey_list)):
       continue
